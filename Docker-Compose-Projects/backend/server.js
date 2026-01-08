@@ -11,10 +11,10 @@ app.use(express.json());
 app.use(cors());
 
 const db = createPool({
-    host: process.env.host,
-    user: process.env.user,
-    password: process.env.password,
-    database: process.env.database,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     connectionLimit: 10, // Adjust based on your requirements
     ssl: {
         rejectUnauthorized: false
@@ -157,6 +157,38 @@ app.delete('/teacher/:id', async (req, res) => {
     }
 });
 
-app.listen(3500, () => {
-    console.log("listening on Port 3500");
+app.get('/healthz', (req, res) => {
+    return res.status(200).json({ status: 'ok' });
 });
+
+app.get('/readyz', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        return res.status(200).json({ status: 'ready' });
+    } catch (err) {
+        console.error('DB not ready:', err);
+        return res.status(503).json({ status: 'not ready' });
+    }
+});
+
+const checkDBConnection = async () => {
+    try {
+        const connection = await db.getConnection();
+        console.log('✅ DB connection established');
+        connection.release();
+    } catch (err) {
+        console.error('❌ DB connection failed:', err.message);
+        process.exit(1); // DB 안 붙으면 서버 자체를 안 띄움
+    }
+};
+
+
+const startServer = async () => {
+    await checkDBConnection();
+
+    app.listen(3500, () => {
+        console.log('🚀 Backend server listening on port 3500');
+    });
+};
+
+startServer();
