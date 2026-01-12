@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
+  namespace: app
 spec:
   replicas: 1
   selector:
@@ -14,6 +15,34 @@ spec:
     spec:
       containers:
         - name: backend
-          image: 339712864309.dkr.ecr.ap-northeast-2.amazonaws.com/backend:v1
+          image: 339712864309.dkr.ecr.ap-northeast-2.amazonaws.com/backend:v2
           ports:
             - containerPort: 3500
+
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: db-secret
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3500
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3500
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 3500
+            failureThreshold: 30
+            periodSeconds: 5
+

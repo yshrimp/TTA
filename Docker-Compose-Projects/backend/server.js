@@ -1,194 +1,182 @@
 const express = require('express');
-const mysql = require('mysql2/promise'); // Use mysql2/promise for async/await support
+const mysql = require('mysql2/promise');
 const cors = require('cors');
 const dotenv = require('dotenv');
 dotenv.config();
-
-const { createPool } = require('mysql2/promise');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-const db = createPool({
+/* =========================
+   DB CONNECTION
+========================= */
+const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    connectionLimit: 10, // Adjust based on your requirements
+    connectionLimit: 10,
     ssl: {
         rejectUnauthorized: false
     }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // Handle the error appropriately, e.g., log it or send an alert
+    console.error('Unhandled Rejection:', reason);
 });
 
-// Centralized database connection handling
 process.on('SIGINT', async () => {
     await db.end();
     process.exit();
 });
 
+/* =========================
+   UTILS
+========================= */
 const getLastStudentID = async () => {
     const [result] = await db.query('SELECT MAX(id) AS lastID FROM student');
-    const lastID = result[0].lastID || 0;
-    return lastID;
+    return result[0].lastID || 0;
 };
 
-const getLastteacherID = async () => {
+const getLastTeacherID = async () => {
     const [result] = await db.query('SELECT MAX(id) AS lastID FROM teacher');
-    const lastID = result[0].lastID || 0;
-    return lastID;
+    return result[0].lastID || 0;
 };
 
-// app.get('/', (req, res) => {
-//     return res.json("From Backend!!!");
-// });
+/* =========================
+   API ROUTER (/api)
+========================= */
+const apiRouter = express.Router();
 
-app.get('/', async (req, res) => {
-  try {
-      // Fetch data from the student table
-      const [data] = await db.query("SELECT * FROM student");
-      return res.json({ message: "From Backend!!!", studentData: data });
-  } catch (error) {
-      console.error('Error fetching student data:', error);
-      return res.status(500).json({ error: 'Error fetching student data' });
-  }
+/* ---- students ---- */
+apiRouter.get('/student', async (req, res) => {
+    const [data] = await db.query('SELECT * FROM student');
+    res.json(data);
 });
 
-app.get('/student', async (req, res) => {
-    const [data] = await db.query("SELECT * FROM student");
-    return res.json(data);
-});
-
-app.get('/teacher', async (req, res) => {
-    const [data] = await db.query("SELECT * FROM teacher");
-    return res.json(data);
-});
-
-app.post('/addstudent', async (req, res) => {
+apiRouter.post('/addstudent', async (req, res) => {
     try {
-        const lastStudentID = await getLastStudentID();
-        const nextStudentID = lastStudentID + 1;
+        const nextID = (await getLastStudentID()) + 1;
 
-        const studentData = {
-            id: nextStudentID,
-            name: req.body.name,
-            roll_number: req.body.rollNo,
-            class: req.body.class,
-        };
+        const sql = `
+            INSERT INTO student (id, name, roll_number, class)
+            VALUES (?, ?, ?, ?)
+        `;
+        await db.query(sql, [
+            nextID,
+            req.body.name,
+            req.body.rollNo,
+            req.body.class
+        ]);
 
-        const sql = `INSERT INTO student (id, name, roll_number, class) VALUES (?, ?, ?, ?)`;
-        await db.query(sql, [studentData.id, studentData.name, studentData.roll_number, studentData.class]);
-        return res.json({ message: 'Data inserted successfully' });
-    } catch (error) {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error inserting data' });
+        res.json({ message: 'Student inserted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Insert student failed' });
     }
 });
 
-app.post('/addteacher', async (req, res) => {
+apiRouter.delete('/student/:id', async (req, res) => {
     try {
-        const lastteacherID = await getLastteacherID();
-        const nextteacherID = lastteacherID + 1;
+        await db.query('DELETE FROM student WHERE id = ?', [req.params.id]);
 
-        const TeacherData = {
-            id: nextteacherID,
-            name: req.body.name,
-            subject: req.body.subject,
-            class: req.body.class,
-        };
+        const [rows] = await db.query('SELECT id FROM student ORDER BY id');
+        await Promise.all(
+            rows.map((row, i) =>
+                db.query('UPDATE student SET id = ? WHERE id = ?', [i + 1, row.id])
+            )
+        );
 
-        const sql = `INSERT INTO teacher (id, name, subject, class) VALUES (?, ?, ?, ?)`;
-        await db.query(sql, [TeacherData.id, TeacherData.name, TeacherData.subject, TeacherData.class]);
-        return res.json({ message: 'Data inserted successfully' });
-    } catch (error) {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error inserting data' });
+        res.json({ message: 'Student deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Delete student failed' });
     }
 });
 
-app.delete('/student/:id', async (req, res) => {
-    const studentId = req.params.id;
-    const sqlDelete = 'DELETE FROM student WHERE id = ?';
-    const sqlSelect = 'SELECT id FROM student ORDER BY id';
+/* ---- teachers ---- */
+apiRouter.get('/teacher', async (req, res) => {
+    const [data] = await db.query('SELECT * FROM teacher');
+    res.json(data);
+});
 
+apiRouter.post('/addteacher', async (req, res) => {
     try {
-        await db.query(sqlDelete, [studentId]);
+        const nextID = (await getLastTeacherID()) + 1;
 
-        const [rows] = await db.query(sqlSelect);
+        const sql = `
+            INSERT INTO teacher (id, name, subject, class)
+            VALUES (?, ?, ?, ?)
+        `;
+        await db.query(sql, [
+            nextID,
+            req.body.name,
+            req.body.subject,
+            req.body.class
+        ]);
 
-        const updatePromises = rows.map(async (row, index) => {
-            const newId = index + 1;
-            await db.query('UPDATE student SET id = ? WHERE id = ?', [newId, row.id]);
-        });
-
-        await Promise.all(updatePromises);
-        return res.json({ message: 'Student deleted successfully' });
-    } catch (error) {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error deleting student' });
+        res.json({ message: 'Teacher inserted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Insert teacher failed' });
     }
 });
 
-app.delete('/teacher/:id', async (req, res) => {
-    const teacherID = req.params.id;
-    const sqlDelete = 'DELETE FROM teacher WHERE id = ?';
-    const sqlSelect = 'SELECT id FROM teacher ORDER BY id';
-
+apiRouter.delete('/teacher/:id', async (req, res) => {
     try {
-        await db.query(sqlDelete, [teacherID]);
+        await db.query('DELETE FROM teacher WHERE id = ?', [req.params.id]);
 
-        const [rows] = await db.query(sqlSelect);
+        const [rows] = await db.query('SELECT id FROM teacher ORDER BY id');
+        await Promise.all(
+            rows.map((row, i) =>
+                db.query('UPDATE teacher SET id = ? WHERE id = ?', [i + 1, row.id])
+            )
+        );
 
-        const updatePromises = rows.map(async (row, index) => {
-            const newId = index + 1;
-            await db.query('UPDATE teacher SET id = ? WHERE id = ?', [newId, row.id]);
-        });
-
-        await Promise.all(updatePromises);
-        return res.json({ message: 'Teacher deleted successfully' });
-    } catch (error) {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Error deleting teacher' });
+        res.json({ message: 'Teacher deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Delete teacher failed' });
     }
 });
 
+/* =========================
+   ROUTER MOUNT
+========================= */
+app.use('/api', apiRouter);
+
+/* =========================
+   HEALTH CHECK
+========================= */
 app.get('/healthz', (req, res) => {
-    return res.status(200).json({ status: 'ok' });
+    res.status(200).json({ status: 'ok' });
 });
 
 app.get('/readyz', async (req, res) => {
     try {
         await db.query('SELECT 1');
-        return res.status(200).json({ status: 'ready' });
-    } catch (err) {
-        console.error('DB not ready:', err);
-        return res.status(503).json({ status: 'not ready' });
+        res.status(200).json({ status: 'ready' });
+    } catch {
+        res.status(503).json({ status: 'not ready' });
     }
 });
 
-const checkDBConnection = async () => {
+/* =========================
+   START SERVER
+========================= */
+const startServer = async () => {
     try {
-        const connection = await db.getConnection();
-        console.log('✅ DB connection established');
-        connection.release();
+        await db.query('SELECT 1');
+        console.log('✅ DB connected');
+        app.listen(3500, () =>
+            console.log('🚀 Backend listening on 3500')
+        );
     } catch (err) {
-        console.error('❌ DB connection failed:', err.message);
-        process.exit(1); // DB 안 붙으면 서버 자체를 안 띄움
+        console.error('❌ DB connection failed', err);
+        process.exit(1);
     }
 };
 
-
-const startServer = async () => {
-    await checkDBConnection();
-
-    app.listen(3500, () => {
-        console.log('🚀 Backend server listening on port 3500');
-    });
-};
-
 startServer();
+
