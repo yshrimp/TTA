@@ -8,7 +8,7 @@
     return (
       <div className="home-container">
         <div className="content">
-          <h1 className="title animated-text">Welcome to Student-Teacher Portal</h1>
+          <h1 className="title animated-text">Welcome to Student-Teacher Portal!</h1>
           <div className="button-container">
             <Link to="/student" className="student-button">Student</Link>
             <div className="button-gap"></div>
