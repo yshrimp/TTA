@@ -26,9 +26,9 @@ jobs:
         with:
           filters: |
             frontend:
-              - 'frontend/**'
+              - 'App/frontend/**'
             backend:
-              - 'backend/**'
+              - 'App/backend/**'
 
   frontend:
     name: Build & Push Frontend
@@ -52,7 +52,7 @@ jobs:
         run: |
           docker build \
             -t frontend:${GITHUB_SHA} \
-            ./frontend
+            ./App/frontend
 
       - name: Push frontend image to ECR
         run: |
@@ -84,7 +84,7 @@ jobs:
         run: |
           docker build \
             -t backend:${GITHUB_SHA} \
-            ./backend
+            ./App/backend
 
       - name: Push backend image to ECR
         run: |
