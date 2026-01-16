@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: backend-svc
   namespace: app
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /readyz
 spec:
   selector:
     app: backend
