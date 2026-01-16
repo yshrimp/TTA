@@ -57,10 +57,10 @@ jobs:
       - name: Push frontend image to ECR
         run: |
           docker tag frontend:${GITHUB_SHA} \
-            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPO }}:${GITHUB_SHA }
+            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPO }}:${GITHUB_SHA}
 
           docker push \
-            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPO }}:${GITHUB_SHA }
+            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPO }}:${GITHUB_SHA}
 
   backend:
     name: Build & Push Backend
@@ -89,8 +89,8 @@ jobs:
       - name: Push backend image to ECR
         run: |
           docker tag backend:${GITHUB_SHA} \
-            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPO }}:${GITHUB_SHA }
+            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPO }}:${GITHUB_SHA}
 
           docker push \
-            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPO }}:${GITHUB_SHA }
+            ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPO }}:${GITHUB_SHA}
 
